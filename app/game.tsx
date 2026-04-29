@@ -9,7 +9,7 @@ import { runOnJS } from 'react-native-reanimated';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Trie } from '../src/engine/Trie';
 import { LetterGenerator, LETTER_SCORES } from '../src/engine/LetterGenerator';
-import { RaycastEngine } from '../src/engine/RaycastEngine';
+import { DFSEngine } from '../src/engine/DFSEngine';
 import dictionary from '../assets/dictionary.json';
 
 const { width } = Dimensions.get('window');
@@ -18,7 +18,7 @@ const BOARD_SIZE = width - 32;
 // 48.000+ kelimelik gerçek Türkçe sözlük yükleniyor
 const globalTrie = new Trie();
 globalTrie.loadDictionary(dictionary as string[]);
-const engine = new RaycastEngine(globalTrie);
+const engine = new DFSEngine(globalTrie);
 
 const POWER_UP_ICONS = {
   row: '⇆',
@@ -80,7 +80,7 @@ export default function GameScreen() {
       const foundWords = engine.findAllWords(letterGrid);
       const nonOverlappingCount = engine.calculateNonOverlappingCount(foundWords);
       
-      console.log(`\n--- [RAYCAST ENGINE] TAHTA ANALİZİ ---`);
+      console.log(`\n--- [DFS ENGINE] TAHTA ANALİZİ (BOGGLE KURALLARI) ---`);
       console.log(`Olası toplam kelime: ${foundWords.length}`);
       
       // En uzun 5 kelimeyi logla
@@ -97,9 +97,21 @@ export default function GameScreen() {
 
   const selectedText = game.selectedIds.map(id => game.cells[id]?.letter || '').join('');
 
-  const selectCellAction = (row: number, col: number) => {
-    if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
-      dispatch(selectCell(game.grid[row][col]));
+  const selectCellAction = (x: number, y: number) => {
+    // Deadzone kontrolü: Parmağın hücrenin orta %50'lik alanına girmesini bekle
+    const relativeX = x % cellSize;
+    const relativeY = y % cellSize;
+    const margin = cellSize * 0.25;
+
+    if (relativeX > margin && relativeX < cellSize - margin &&
+        relativeY > margin && relativeY < cellSize - margin) {
+        
+        const col = Math.floor(x / cellSize);
+        const row = Math.floor(y / cellSize);
+        
+        if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
+          dispatch(selectCell(game.grid[row][col]));
+        }
     }
   };
 
@@ -117,14 +129,10 @@ export default function GameScreen() {
 
   const panGesture = Gesture.Pan()
     .onBegin((e) => {
-      const col = Math.floor(e.x / cellSize);
-      const row = Math.floor(e.y / cellSize);
-      runOnJS(selectCellAction)(row, col);
+      runOnJS(selectCellAction)(e.x, e.y);
     })
     .onUpdate((e) => {
-      const col = Math.floor(e.x / cellSize);
-      const row = Math.floor(e.y / cellSize);
-      runOnJS(selectCellAction)(row, col);
+      runOnJS(selectCellAction)(e.x, e.y);
     })
     .onEnd(() => {
       runOnJS(validateWordAction)();

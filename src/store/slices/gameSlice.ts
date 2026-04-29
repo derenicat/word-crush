@@ -19,7 +19,6 @@ export interface GameState {
   level: 'easy' | 'medium' | 'hard';
   availableWordCount: number;
   selectedIds: string[];
-  selectionPath: { prevRow: number; prevCol: number; dRow: number; dCol: number } | null;
 }
 
 const initialState: GameState = {
@@ -31,7 +30,6 @@ const initialState: GameState = {
   level: 'medium',
   availableWordCount: 0,
   selectedIds: [],
-  selectionPath: null,
 };
 
 export const gameSlice = createSlice({
@@ -45,7 +43,6 @@ export const gameSlice = createSlice({
       state.maxMoves = moves;
       state.score = 0;
       state.selectedIds = [];
-      state.selectionPath = null;
       
       const newGrid: string[][] = [];
       const newCells: Record<string, CellData> = {};
@@ -73,37 +70,43 @@ export const gameSlice = createSlice({
     
     selectCell: (state, action: PayloadAction<string>) => {
         const id = action.payload;
-        if(!state.cells[id] || state.selectedIds.includes(id)) return;
+        if(!state.cells[id]) return;
         
         const cell = state.cells[id];
         
+        // İlk harf seçimi
         if (state.selectedIds.length === 0) {
             state.selectedIds.push(id);
             state.cells[id].status = 'selected';
-            state.selectionPath = { prevRow: cell.row, prevCol: cell.col, dRow: 0, dCol: 0 };
-        } else if (state.selectedIds.length === 1) {
-            const path = state.selectionPath!;
-            const dr = cell.row - path.prevRow;
-            const dc = cell.col - path.prevCol;
-            
-            // Çapraz veya düz, sadece 1 birim uzaklıkta olmalı ve kendi olmamalı
-            if (Math.abs(dr) <= 1 && Math.abs(dc) <= 1 && !(dr === 0 && dc === 0)) {
-                state.selectionPath = { prevRow: cell.row, prevCol: cell.col, dRow: dr, dCol: dc };
-                state.selectedIds.push(id);
-                state.cells[id].status = 'selected';
+            return;
+        }
+
+        // Backtracking (Geri Alma) Kontrolü
+        if (state.selectedIds.length > 1) {
+            const prevId = state.selectedIds[state.selectedIds.length - 2];
+            // Eğer bir önceki hücrenin üzerine geri gelindiyse, son hücreyi çıkart (pop)
+            if (id === prevId) {
+                const popped = state.selectedIds.pop();
+                if (popped) {
+                    state.cells[popped].status = 'idle';
+                }
+                return;
             }
-        } else {
-            const path = state.selectionPath!;
-            const dr = cell.row - path.prevRow;
-            const dc = cell.col - path.prevCol;
-            
-            // Başlangıçta belirlenen vektörü tam olarak takip etmeli
-            if (dr === path.dRow && dc === path.dCol) {
-                state.selectionPath!.prevRow = cell.row;
-                state.selectionPath!.prevCol = cell.col;
-                state.selectedIds.push(id);
-                state.cells[id].status = 'selected';
-            }
+        }
+
+        // Zaten seçiliyse (ve bir önceki hücre değilse) yoksay (kendi üstünden geçemez)
+        if (state.selectedIds.includes(id)) return;
+
+        // Boggle Komşu Kontrolü
+        const lastId = state.selectedIds[state.selectedIds.length - 1];
+        const lastCell = state.cells[lastId];
+        const dr = Math.abs(cell.row - lastCell.row);
+        const dc = Math.abs(cell.col - lastCell.col);
+        
+        // Komşu hücre olmak zorunda (Mesafe max 1)
+        if (dr <= 1 && dc <= 1 && !(dr === 0 && dc === 0)) {
+            state.selectedIds.push(id);
+            state.cells[id].status = 'selected';
         }
     },
     
@@ -112,7 +115,6 @@ export const gameSlice = createSlice({
             if(state.cells[id]) state.cells[id].status = 'idle';
         });
         state.selectedIds = [];
-        state.selectionPath = null;
     },
 
     processValidWord: (state, action: PayloadAction<{ wordScore: number, newLetters: string[] }>) => {
@@ -231,16 +233,14 @@ export const gameSlice = createSlice({
       }
 
       state.selectedIds = [];
-      state.selectionPath = null;
     },
     
     invalidWordAttempt: (state) => {
-        state.movesLeft = Math.max(0, state.movesLeft - 1);
+        // Hatalı veya kısa kelimede (min 3) sadece seçimi sıfırla, movesLeft cezasını kaldırdık.
         state.selectedIds.forEach(id => {
             if(state.cells[id]) state.cells[id].status = 'idle';
         });
         state.selectedIds = [];
-        state.selectionPath = null;
     },
 
     updateAvailableWords: (state, action: PayloadAction<number>) => {
