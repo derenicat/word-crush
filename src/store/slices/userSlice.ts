@@ -8,6 +8,7 @@ export interface UserState {
   totalWordsFound: number;
   longestWord: string;
   totalPlayTimeMinutes: number;
+  pastGames: { id: string, date: string, score: number, wordsFound: number, level: string }[];
 }
 
 const initialState: UserState = {
@@ -18,6 +19,7 @@ const initialState: UserState = {
   totalWordsFound: 0,
   longestWord: '',
   totalPlayTimeMinutes: 0,
+  pastGames: [],
 };
 
 export const userSlice = createSlice({
@@ -43,6 +45,17 @@ export const userSlice = createSlice({
       }
       
       state.totalPlayTimeMinutes += action.payload.duration;
+      
+      if (!state.pastGames) state.pastGames = [];
+      
+      state.pastGames.unshift({
+        id: Date.now().toString(),
+        date: new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+        score: action.payload.score,
+        wordsFound: action.payload.wordsFound,
+        level: 'Tamamlandı'
+      });
+      if (state.pastGames.length > 50) state.pastGames.pop(); // Son 50 oyunu tut
     }
   },
 });

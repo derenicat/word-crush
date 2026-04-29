@@ -42,13 +42,23 @@ export default function ScoresScreen() {
         </View>
 
         <Text className="text-wood-200 font-bold mb-4 ml-2">Geçmiş Oyunlar</Text>
-        {user.totalGamesPlayed === 0 ? (
-          <Text className="text-wood-400 text-center mt-4">Henüz hiç oyun oynamadın.</Text>
+        {(user.pastGames || []).length === 0 ? (
+          <Text className="text-wood-400 text-center mt-4 mb-10">Henüz hiç oyun oynamadın.</Text>
         ) : (
-          <View className="bg-wood-800 rounded-xl p-4 border border-wood-700 mb-3">
-             <Text className="text-white text-center text-wood-400">Oyun geçmişi listesi...</Text>
-          </View>
+          (user.pastGames || []).map((game, index) => (
+            <View key={game.id || index} className="bg-wood-800 rounded-xl p-4 border border-wood-700 mb-3 flex-row justify-between items-center">
+               <View>
+                 <Text className="text-white font-bold">{game.date}</Text>
+                 <Text className="text-wood-400 text-xs mt-1">{game.wordsFound} Kelime</Text>
+               </View>
+               <View className="items-end">
+                 <Text className="text-gold font-bold text-lg">{game.score} Puan</Text>
+                 <Text className="text-wood-400 text-xs mt-1">{game.level}</Text>
+               </View>
+            </View>
+          ))
         )}
+        <View className="h-10" />
       </ScrollView>
     </View>
   );

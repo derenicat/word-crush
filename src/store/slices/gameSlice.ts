@@ -19,6 +19,8 @@ export interface GameState {
   level: 'easy' | 'medium' | 'hard';
   availableWordCount: number;
   selectedIds: string[];
+  moveLogs: { word: string; comboWords: string[]; score: number }[];
+  gameStartTime: number;
 }
 
 const initialState: GameState = {
@@ -30,6 +32,8 @@ const initialState: GameState = {
   level: 'medium',
   availableWordCount: 0,
   selectedIds: [],
+  moveLogs: [],
+  gameStartTime: 0,
 };
 
 export const gameSlice = createSlice({
@@ -43,6 +47,8 @@ export const gameSlice = createSlice({
       state.maxMoves = moves;
       state.score = 0;
       state.selectedIds = [];
+      state.moveLogs = [];
+      state.gameStartTime = Date.now();
       
       const newGrid: string[][] = [];
       const newCells: Record<string, CellData> = {};
@@ -117,11 +123,17 @@ export const gameSlice = createSlice({
         state.selectedIds = [];
     },
 
-    processValidWord: (state, action: PayloadAction<{ wordScore: number, newLetters: string[] }>) => {
+    processValidWord: (state, action: PayloadAction<{ wordText: string, comboWords: string[], wordScore: number, newLetters: string[] }>) => {
       const size = state.grid.length;
       if (size === 0) return;
 
-      state.score += action.payload.wordScore;
+      const { wordText, comboWords, wordScore, newLetters } = action.payload;
+
+      // Log kaydı oluştur
+      state.moveLogs.unshift({ word: wordText, comboWords, score: wordScore });
+      if (state.moveLogs.length > 50) state.moveLogs.pop(); // Sadece son 50 hamleyi tut
+
+      state.score += wordScore;
       state.movesLeft = Math.max(0, state.movesLeft - 1);
 
       // --- POWER-UP OLUŞTURMA (Son harfi koru) ---
@@ -190,8 +202,6 @@ export const gameSlice = createSlice({
         if (cell) {
           state.grid[cell.row][cell.col] = '';
           delete state.cells[id]; 
-          // Zincirleme patlamalardan ekstra puan eklenebilir, şimdilik sadece sabit veriyoruz
-          state.score += 2; 
         }
       });
 
@@ -244,10 +254,188 @@ export const gameSlice = createSlice({
     },
 
     updateAvailableWords: (state, action: PayloadAction<number>) => {
-        state.availableWordCount = action.payload;
+      state.availableWordCount = action.payload;
+    },
+
+    applyJoker: (state, action: PayloadAction<{ type: string, targetRow?: number, targetCol?: number, targetRow2?: number, targetCol2?: number, newLetters: string[] }>) => {
+      const { type, targetRow, targetCol, targetRow2, targetCol2, newLetters } = action.payload;
+      const gridSize = state.grid.length;
+
+      // YER DEĞİŞTİRME (SWAP)
+      if (type === 'swap' && targetRow !== undefined && targetCol !== undefined && targetRow2 !== undefined && targetCol2 !== undefined) {
+          const id1 = state.grid[targetRow][targetCol];
+          const id2 = state.grid[targetRow2][targetCol2];
+          if (id1 && id2) {
+              state.grid[targetRow][targetCol] = id2;
+              state.grid[targetRow2][targetCol2] = id1;
+              state.cells[id1].row = targetRow2;
+              state.cells[id1].col = targetCol2;
+              state.cells[id2].row = targetRow;
+              state.cells[id2].col = targetCol;
+          }
+          return;
+      }
+
+      // PARTİ BOOSTER (TÜM EKRANI TEMİZLE VE YENİLE)
+      if (type === 'partyBooster') {
+          for (let r = 0; r < gridSize; r++) {
+              for (let c = 0; c < gridSize; c++) {
+                  const id = state.grid[r][c];
+                  if (id) delete state.cells[id];
+              }
+          }
+          let idx = 0;
+          for (let r = 0; r < gridSize; r++) {
+              for (let c = 0; c < gridSize; c++) {
+                  const newId = `${Date.now()}-${r}-${c}-${Math.random()}`;
+                  state.grid[r][c] = newId;
+                  state.cells[newId] = { id: newId, letter: newLetters[idx++] || 'A', row: r, col: c, status: 'idle' };
+              }
+          }
+          return;
+      }
+
+      const toBeExploded = new Set<string>();
+
+      if (type === 'lollipop' && targetRow !== undefined && targetCol !== undefined) {
+        const id = state.grid[targetRow][targetCol];
+        if (id) toBeExploded.add(id);
+      } else if (type === 'wheel' && targetRow !== undefined && targetCol !== undefined) {
+        for (let i = 0; i < gridSize; i++) {
+          const idRow = state.grid[targetRow][i];
+          if (idRow) toBeExploded.add(idRow);
+          const idCol = state.grid[i][targetCol];
+          if (idCol) toBeExploded.add(idCol);
+        }
+      } else if (type === 'fish') {
+        const validIds: string[] = [];
+        for (let r = 0; r < gridSize; r++) {
+          for (let c = 0; c < gridSize; c++) {
+            if (state.grid[r][c]) validIds.push(state.grid[r][c]);
+          }
+        }
+        for (let i = 0; i < 5; i++) {
+          if (validIds.length > 0) {
+            const randomIndex = Math.floor(Math.random() * validIds.length);
+            toBeExploded.add(validIds[randomIndex]);
+            validIds.splice(randomIndex, 1);
+          }
+        }
+      }
+
+      if (toBeExploded.size === 0) return;
+
+      const queue = Array.from(toBeExploded);
+      let head = 0;
+      while (head < queue.length) {
+        const currentId = queue[head++];
+        const cell = state.cells[currentId];
+        if (!cell) continue;
+
+        if (cell.powerUp === 'row') {
+          for (let c = 0; c < gridSize; c++) {
+            const id = state.grid[cell.row][c];
+            if (id && !toBeExploded.has(id)) { toBeExploded.add(id); queue.push(id); }
+          }
+        } else if (cell.powerUp === 'col') {
+          for (let r = 0; r < gridSize; r++) {
+            const id = state.grid[r][cell.col];
+            if (id && !toBeExploded.has(id)) { toBeExploded.add(id); queue.push(id); }
+          }
+        } else if (cell.powerUp === 'area') {
+          for (let r = cell.row - 1; r <= cell.row + 1; r++) {
+            for (let c = cell.col - 1; c <= cell.col + 1; c++) {
+              if (r >= 0 && r < gridSize && c >= 0 && c < gridSize) {
+                const id = state.grid[r][c];
+                if (id && !toBeExploded.has(id)) { toBeExploded.add(id); queue.push(id); }
+              }
+            }
+          }
+        } else if (cell.powerUp === 'mega') {
+          const letter = cell.letter;
+          for (let r = 0; r < gridSize; r++) {
+            for (let c = 0; c < gridSize; c++) {
+              const id = state.grid[r][c];
+              if (id && state.cells[id].letter === letter && !toBeExploded.has(id)) {
+                toBeExploded.add(id); queue.push(id);
+              }
+            }
+          }
+        }
+      }
+
+      toBeExploded.forEach(id => {
+        const cell = state.cells[id];
+        if (cell) {
+          state.grid[cell.row][cell.col] = '';
+          delete state.cells[id];
+        }
+      });
+
+      let letterIndex = 0;
+      for (let c = 0; c < gridSize; c++) {
+        let emptySpaces = 0;
+        for (let r = gridSize - 1; r >= 0; r--) {
+          if (state.grid[r][c] === '') {
+            emptySpaces++;
+          } else if (emptySpaces > 0) {
+            const id = state.grid[r][c];
+            state.grid[r + emptySpaces][c] = id;
+            state.grid[r][c] = '';
+            state.cells[id].row = r + emptySpaces;
+          }
+        }
+
+        for (let r = emptySpaces - 1; r >= 0; r--) {
+          const newId = `${Date.now()}-${r}-${c}-${Math.random()}`;
+          state.grid[r][c] = newId;
+          state.cells[newId] = { id: newId, letter: newLetters[letterIndex++] || 'A', row: r, col: c, status: 'idle' };
+        }
+      }
+    },
+
+    shuffleGrid: (state) => {
+        const gridSize = state.grid.length;
+        const allLetters: {letter: string, powerUp?: 'row' | 'col' | 'area' | 'mega'}[] = [];
+        
+        for (let r = 0; r < gridSize; r++) {
+            for (let c = 0; c < gridSize; c++) {
+                const id = state.grid[r][c];
+                if (id && state.cells[id]) {
+                    allLetters.push({
+                        letter: state.cells[id].letter,
+                        powerUp: state.cells[id].powerUp
+                    });
+                    delete state.cells[id];
+                }
+            }
+        }
+        
+        // Fisher-Yates
+        for (let i = allLetters.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [allLetters[i], allLetters[j]] = [allLetters[j], allLetters[i]];
+        }
+        
+        let index = 0;
+        for (let r = 0; r < gridSize; r++) {
+            for (let c = 0; c < gridSize; c++) {
+                const newId = `${Date.now()}-${r}-${c}-${Math.random()}`;
+                const data = allLetters[index++];
+                state.grid[r][c] = newId;
+                state.cells[newId] = {
+                    id: newId,
+                    row: r,
+                    col: c,
+                    letter: data.letter,
+                    powerUp: data.powerUp,
+                    status: 'idle'
+                };
+            }
+        }
     }
   },
 });
 
-export const { initializeGrid, selectCell, clearSelection, processValidWord, invalidWordAttempt, updateAvailableWords } = gameSlice.actions;
+export const { initializeGrid, selectCell, clearSelection, processValidWord, invalidWordAttempt, updateAvailableWords, applyJoker, shuffleGrid } = gameSlice.actions;
 export default gameSlice.reducer;

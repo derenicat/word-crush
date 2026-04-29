@@ -51,9 +51,12 @@ export const marketSlice = createSlice({
       if (state.inventory[item] > 0) {
         state.inventory[item] -= 1;
       }
+    },
+    addGold: (state, action: PayloadAction<number>) => {
+      state.gold += action.payload;
     }
   },
 });
 
-export const { buyItem, useItem } = marketSlice.actions;
+export const { buyItem, useItem, addGold } = marketSlice.actions;
 export default marketSlice.reducer;
