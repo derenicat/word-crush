@@ -46,7 +46,7 @@ export const marketSlice = createSlice({
         state.inventory[item] += 1;
       }
     },
-    useItem: (state, action: PayloadAction<keyof typeof ITEM_PRICES>) => {
+    consumeItem: (state, action: PayloadAction<keyof typeof ITEM_PRICES>) => {
       const item = action.payload;
       if (state.inventory[item] > 0) {
         state.inventory[item] -= 1;
@@ -58,5 +58,5 @@ export const marketSlice = createSlice({
   },
 });
 
-export const { buyItem, useItem, addGold } = marketSlice.actions;
+export const { buyItem, consumeItem, addGold } = marketSlice.actions;
 export default marketSlice.reducer;

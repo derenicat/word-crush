@@ -234,7 +234,7 @@ export const gameSlice = createSlice({
         // 4. En üste boşluklar kadar yeni harf ekle
         for (let r = 0; r < emptyCount; r++) {
           const newId = `new-${r}-${c}-${Date.now()}-${Math.random()}`;
-          const letter = action.payload.newLetters[newLetterIdx++] || 'A';
+          const letter = newLetters[newLetterIdx++] || 'A';
           state.grid[r][c] = newId;
           state.cells[newId] = {
             id: newId,
@@ -407,7 +407,7 @@ export const gameSlice = createSlice({
 
     shuffleGrid: (state) => {
         const gridSize = state.grid.length;
-        const allLetters: {letter: string, powerUp?: 'row' | 'col' | 'area' | 'mega'}[] = [];
+        const allLetters: {letter: string, powerUp?: 'row' | 'col' | 'area' | 'mega' | null}[] = [];
         
         for (let r = 0; r < gridSize; r++) {
             for (let c = 0; c < gridSize; c++) {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store';
-import { useItem } from '../store/slices/marketSlice';
+import { consumeItem } from '../store/slices/marketSlice';
 import { applyJoker, shuffleGrid } from '../store/slices/gameSlice';
 import { LetterGenerator } from '../engine/LetterGenerator';
 
@@ -16,7 +16,7 @@ export const useJokerActions = () => {
 
   const handleInstantJoker = (type: 'fish' | 'shuffle' | 'partyBooster') => {
     if (inventory[type] > 0) {
-      dispatch(useItem(type));
+      dispatch(consumeItem(type));
       
       if (type === 'shuffle') {
         dispatch(shuffleGrid());
@@ -51,14 +51,14 @@ export const useJokerActions = () => {
                 setSwapTarget(null);
                 return;
             }
-            dispatch(useItem(activeJoker));
+            dispatch(consumeItem(activeJoker));
             const newLetters = Array(20).fill(0).map(() => LetterGenerator.getRandomLetter());
             dispatch(applyJoker({ type: activeJoker, targetRow: swapTarget.row, targetCol: swapTarget.col, targetRow2: row, targetCol2: col, newLetters }));
             setActiveJoker(null);
             setSwapTarget(null);
         }
     } else {
-        dispatch(useItem(activeJoker)); // Envanterden düş
+        dispatch(consumeItem(activeJoker)); // Envanterden düş
         const newLetters = Array(20).fill(0).map(() => LetterGenerator.getRandomLetter());
         dispatch(applyJoker({ type: activeJoker, targetRow: row, targetCol: col, newLetters }));
         setActiveJoker(null); // Moddan çık

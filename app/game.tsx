@@ -7,8 +7,7 @@ import { selectCell, processValidWord, invalidWordAttempt, resetSelection, updat
 import { updateStatsAfterGame } from '../src/store/slices/userSlice';
 import { addGold } from '../src/store/slices/marketSlice';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
-import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { Trie } from '../src/engine/Trie';
 import { LetterGenerator, LETTER_SCORES } from '../src/engine/LetterGenerator';
 import { DFSEngine } from '../src/engine/DFSEngine';
@@ -32,16 +31,16 @@ const POWER_UP_ICONS = {
 
 const Cell = React.memo(({ id, size }: { id: string; size: number }) => {
   const cellData = useSelector((state: RootState) => state.game.cells[id]);
-  if (!cellData) return null;
-
-  const isSelected = cellData.status === 'selected';
+  const isSelected = cellData?.status === 'selected';
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      top: withSpring(4 + cellData.row * size, { damping: 15, stiffness: 120 }),
-      left: withSpring(4 + cellData.col * size, { damping: 15, stiffness: 120 }),
+      top: withSpring(4 + (cellData?.row ?? 0) * size, { damping: 15, stiffness: 120 }),
+      left: withSpring(4 + (cellData?.col ?? 0) * size, { damping: 15, stiffness: 120 }),
     };
   });
+
+  if (!cellData) return null;
 
   return (
     <Animated.View style={[{ position: 'absolute', width: size, height: size, padding: 2 }, animatedStyle]}>
@@ -62,6 +61,8 @@ const Cell = React.memo(({ id, size }: { id: string; size: number }) => {
     </Animated.View>
   );
 });
+
+Cell.displayName = 'Cell';
 
 export default function GameScreen() {
   const router = useRouter();
@@ -84,13 +85,16 @@ export default function GameScreen() {
     return () => clearInterval(interval);
   }, [isGameOver]);
 
+  const gridSize = game.grid.length;
+  const cellSize = gridSize > 0 ? (BOARD_SIZE - 8) / gridSize : 0;
+
   const formatTime = (sec: number) => {
     const mins = Math.floor(sec / 60);
     const secs = sec % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const endGame = () => {
+  const endGame = React.useCallback(() => {
     if (isGameOver) return;
     setIsGameOver(true);
     let longest = '';
@@ -113,16 +117,13 @@ export default function GameScreen() {
     }));
     
     dispatch(addGold(game.score));
-  };
+  }, [isGameOver, game.moveLogs, game.gameStartTime, game.score, dispatch, gridSize]);
 
   useEffect(() => {
     if (game.movesLeft <= 0 && !isGameOver && game.grid.length > 0) {
       endGame();
     }
-  }, [game.movesLeft]);
-
-  const gridSize = game.grid.length;
-  const cellSize = gridSize > 0 ? (BOARD_SIZE - 8) / gridSize : 0;
+  }, [game.movesLeft, isGameOver, game.grid.length, endGame]);
 
   // Grid her güncellendiğinde kelimeleri tara
   useEffect(() => {
@@ -156,9 +157,7 @@ export default function GameScreen() {
       
       dispatch(updateAvailableWords(nonOverlappingCount));
     }
-  }, [game.grid]);
-
-  const selectedText = game.selectedIds.map(id => game.cells[id]?.letter || '').join('');
+  }, [game.grid, game.cells, gridSize, dispatch]);
 
   const selectCellAction = (x: number, y: number) => {
     const adjustedX = x - 4;
