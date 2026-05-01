@@ -157,6 +157,11 @@ export const gameSlice = createSlice({
       const queue = Array.from(toBeExploded);
       const processed = new Set<string>();
 
+      // Eğer yeni power-up'ın yerleşeceği hücrede eski bir güç varsa, önce onu tetikle (zincirlemeye dahil et)
+      if (newPowerUpId && state.cells[newPowerUpId]?.powerUp) {
+        queue.push(newPowerUpId);
+      }
+
       while (queue.length > 0) {
         const id = queue.shift()!;
         if (processed.has(id)) continue;
@@ -246,7 +251,13 @@ export const gameSlice = createSlice({
     },
     
     invalidWordAttempt: (state) => {
-        // Hatalı veya kısa kelimede (min 3) sadece seçimi sıfırla, movesLeft cezasını kaldırdık.
+        state.movesLeft -= 1;
+        state.selectedIds.forEach(id => {
+            if(state.cells[id]) state.cells[id].status = 'idle';
+        });
+        state.selectedIds = [];
+    },
+    resetSelection: (state) => {
         state.selectedIds.forEach(id => {
             if(state.cells[id]) state.cells[id].status = 'idle';
         });
@@ -437,5 +448,5 @@ export const gameSlice = createSlice({
   },
 });
 
-export const { initializeGrid, selectCell, clearSelection, processValidWord, invalidWordAttempt, updateAvailableWords, applyJoker, shuffleGrid } = gameSlice.actions;
+export const { initializeGrid, selectCell, clearSelection, processValidWord, invalidWordAttempt, resetSelection, updateAvailableWords, applyJoker, shuffleGrid } = gameSlice.actions;
 export default gameSlice.reducer;

@@ -8,7 +8,16 @@ export interface UserState {
   totalWordsFound: number;
   longestWord: string;
   totalPlayTimeMinutes: number;
-  pastGames: { id: string, date: string, score: number, wordsFound: number, level: string }[];
+  pastGames: { 
+    id: string; 
+    date: string; 
+    score: number; 
+    wordsFound: number; 
+    longestWord: string; 
+    duration: number; 
+    gridSize: string; 
+    gameNumber: number;
+  }[];
 }
 
 const initialState: UserState = {
@@ -29,7 +38,7 @@ export const userSlice = createSlice({
     setUsername: (state, action: PayloadAction<string>) => {
       state.username = action.payload;
     },
-    updateStatsAfterGame: (state, action: PayloadAction<{ score: number, wordsFound: number, longest: string, duration: number }>) => {
+    updateStatsAfterGame: (state, action: PayloadAction<{ score: number, wordsFound: number, longest: string, duration: number, gridSize: string }>) => {
       state.totalGamesPlayed += 1;
       
       const totalPastScore = state.averageScore * (state.totalGamesPlayed - 1);
@@ -53,9 +62,12 @@ export const userSlice = createSlice({
         date: new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
         score: action.payload.score,
         wordsFound: action.payload.wordsFound,
-        level: 'Tamamlandı'
+        longestWord: action.payload.longest,
+        duration: action.payload.duration,
+        gridSize: action.payload.gridSize,
+        gameNumber: state.totalGamesPlayed
       });
-      if (state.pastGames.length > 50) state.pastGames.pop(); // Son 50 oyunu tut
+      if (state.pastGames.length > 10) state.pastGames.pop(); // Son 10 oyunu tut
     }
   },
 });

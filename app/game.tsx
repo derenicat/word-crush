@@ -3,7 +3,7 @@ import { View, Text, Dimensions, TouchableOpacity, Alert, Modal, ScrollView } fr
 import { useRouter } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../src/store';
-import { selectCell, processValidWord, invalidWordAttempt, updateAvailableWords } from '../src/store/slices/gameSlice';
+import { selectCell, processValidWord, invalidWordAttempt, resetSelection, updateAvailableWords } from '../src/store/slices/gameSlice';
 import { updateStatsAfterGame } from '../src/store/slices/userSlice';
 import { addGold } from '../src/store/slices/marketSlice';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -72,6 +72,23 @@ export default function GameScreen() {
   const { activeJoker, swapTarget, handleInstantJoker, activateTargetedJoker, cancelJoker, executeTargetedJoker } = useJokerActions();
   const [isLogVisible, setIsLogVisible] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    let interval: any;
+    if (!isGameOver) {
+      interval = setInterval(() => {
+        setSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isGameOver]);
+
+  const formatTime = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   const endGame = () => {
     if (isGameOver) return;
@@ -91,7 +108,8 @@ export default function GameScreen() {
       score: game.score,
       wordsFound: totalWords,
       longest: longest,
-      duration: duration
+      duration: duration,
+      gridSize: `${gridSize}x${gridSize}`
     }));
     
     dispatch(addGold(game.score));
@@ -104,8 +122,7 @@ export default function GameScreen() {
   }, [game.movesLeft]);
 
   const gridSize = game.grid.length;
-  if(gridSize === 0) return null;
-  const cellSize = (BOARD_SIZE - 8) / gridSize;
+  const cellSize = gridSize > 0 ? (BOARD_SIZE - 8) / gridSize : 0;
 
   // Grid her güncellendiğinde kelimeleri tara
   useEffect(() => {
@@ -116,18 +133,26 @@ export default function GameScreen() {
       );
       
       const foundWords = engine.findAllWords(letterGrid);
+      const uniqueWords = Array.from(new Set(foundWords.map(w => w.text)))
+        .map(text => {
+          const original = foundWords.find(w => w.text === text);
+          return { text, length: original?.path.length || 0 };
+        })
+        .sort((a, b) => b.length - a.length);
+
       const nonOverlappingCount = engine.calculateNonOverlappingCount(foundWords);
       
-      console.log(`\n--- [DFS ENGINE] TAHTA ANALİZİ (BOGGLE KURALLARI) ---`);
-      console.log(`Olası toplam kelime: ${foundWords.length}`);
-      
-      // En uzun 5 kelimeyi logla
-      foundWords.sort((a,b) => b.text.length - a.text.length).slice(0, 5).forEach(w => {
-         console.log(`- ${w.text} (${w.path.length} harf)`);
+      let logMessage = `\n--- [DFS ENGINE] TAHTA ANALİZİ ---\n`;
+      logMessage += `Toplam Varyasyon: ${foundWords.length}\n`;
+      logMessage += `Benzersiz Kelime: ${uniqueWords.length}\n`;
+      logMessage += `En Uzunlar:\n`;
+      uniqueWords.slice(0, 5).forEach(w => {
+         logMessage += `  - ${w.text} (${w.length} harf)\n`;
       });
+      logMessage += `Çakışmasız Max: ${nonOverlappingCount}\n`;
+      logMessage += `----------------------------------\n`;
       
-      console.log(`Çakışmadan patlatılabilecek (Greedy Max) kelime sayısı: ${nonOverlappingCount}`);
-      console.log(`--------------------------------------\n`);
+      console.log(logMessage);
       
       dispatch(updateAvailableWords(nonOverlappingCount));
     }
@@ -162,7 +187,7 @@ export default function GameScreen() {
     const text = game.selectedIds.map(id => game.cells[id]?.letter || '').join('');
     
     if (text.length >= 3 && globalTrie.search(text)) {
-      // Substring Combo Algoritması
+      // ... (existing logic)
       const comboWordsSet = new Set<string>();
       for (let i = 0; i <= text.length - 3; i++) {
         for (let j = i + 3; j <= text.length; j++) {
@@ -182,7 +207,11 @@ export default function GameScreen() {
       const newLetters = Array(100).fill(0).map(() => LetterGenerator.getRandomLetter());
       dispatch(processValidWord({ wordText: text, comboWords, wordScore: totalScore, newLetters }));
     } else {
-      if(text.length > 0) dispatch(invalidWordAttempt());
+      if (text.length >= 2) {
+        dispatch(invalidWordAttempt());
+      } else if (text.length === 1) {
+        dispatch(resetSelection());
+      }
     }
   };
 
@@ -224,6 +253,8 @@ export default function GameScreen() {
     ]);
   };
 
+  if (gridSize === 0) return null;
+
   return (
     <View className="flex-1 bg-wood-900 pt-16 px-4">
       <View className="flex-row justify-between items-center mb-4 px-4 w-full">
@@ -231,6 +262,7 @@ export default function GameScreen() {
           <View>
             <Text className="text-white text-lg font-bold">Puan: {game.score}</Text>
             <Text className="text-wood-400 font-bold">Hamle: {game.movesLeft}</Text>
+            <Text className="text-wood-500 text-xs font-bold">Süre: {formatTime(seconds)}</Text>
           </View>
           <TouchableOpacity onPress={() => setIsLogVisible(true)} className="bg-wood-700 px-3 py-2 rounded-lg border border-wood-500">
             <Text className="text-white font-bold">📜 Log</Text>

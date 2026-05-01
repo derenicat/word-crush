@@ -39,21 +39,45 @@ export default function ScoresScreen() {
             <Text className="text-wood-300">En Uzun Kelime:</Text>
             <Text className="text-gold font-bold">{user.longestWord || '-'}</Text>
           </View>
+          <View className="flex-row justify-between">
+            <Text className="text-wood-300">Toplam Süre:</Text>
+            <Text className="text-white font-bold">{user.totalPlayTimeMinutes} dk</Text>
+          </View>
         </View>
-
+ 
         <Text className="text-wood-200 font-bold mb-4 ml-2">Geçmiş Oyunlar</Text>
         {(user.pastGames || []).length === 0 ? (
           <Text className="text-wood-400 text-center mt-4 mb-10">Henüz hiç oyun oynamadın.</Text>
         ) : (
-          (user.pastGames || []).map((game, index) => (
-            <View key={game.id || index} className="bg-wood-800 rounded-xl p-4 border border-wood-700 mb-3 flex-row justify-between items-center">
-               <View>
-                 <Text className="text-white font-bold">{game.date}</Text>
-                 <Text className="text-wood-400 text-xs mt-1">{game.wordsFound} Kelime</Text>
-               </View>
-               <View className="items-end">
+          (user.pastGames || []).slice(0, 10).map((game, index) => (
+            <View key={game.id || index} className="bg-wood-800 rounded-xl p-4 border border-wood-700 mb-4">
+               <View className="flex-row justify-between items-center mb-3 border-b border-wood-700 pb-2">
+                 <View className="flex-row items-center">
+                    <View className="bg-gold w-6 h-6 rounded-full items-center justify-center mr-2">
+                      <Text className="text-wood-900 text-xs font-bold">{game.gameNumber || (user.pastGames.length - index)}</Text>
+                    </View>
+                    <Text className="text-white font-bold">{game.date}</Text>
+                 </View>
                  <Text className="text-gold font-bold text-lg">{game.score} Puan</Text>
-                 <Text className="text-wood-400 text-xs mt-1">{game.level}</Text>
+               </View>
+
+               <View className="flex-row justify-between flex-wrap gap-y-2">
+                 <View className="w-1/2">
+                   <Text className="text-wood-400 text-[10px] uppercase">Grid</Text>
+                   <Text className="text-wood-200 text-sm font-medium">{game.gridSize || '10x10'}</Text>
+                 </View>
+                 <View className="w-1/2 items-end">
+                   <Text className="text-wood-400 text-[10px] uppercase">Kelimeler</Text>
+                   <Text className="text-wood-200 text-sm font-medium">{game.wordsFound} Adet</Text>
+                 </View>
+                 <View className="w-1/2">
+                   <Text className="text-wood-400 text-[10px] uppercase">En Uzun</Text>
+                   <Text className="text-accent text-sm font-bold">{game.longestWord || '-'}</Text>
+                 </View>
+                 <View className="w-1/2 items-end">
+                   <Text className="text-wood-400 text-[10px] uppercase">Süre</Text>
+                   <Text className="text-wood-200 text-sm font-medium">{game.duration || 0} dk</Text>
+                 </View>
                </View>
             </View>
           ))
