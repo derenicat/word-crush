@@ -1,50 +1,106 @@
-# Welcome to your Expo app 👋
+# Word Crush 👋
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Word Crush, React Native ve Expo kullanılarak geliştirilmiş, modern görseller ve zengin oyun mekanikleriyle donatılmış bir kelime bulmaca oyunudur. Bu proje, karmaşık algoritmalardan (Trie, DFS) faydalanarak yüksek performanslı bir oyun deneyimi sunar.
 
-## Get started
+---
 
-1. Install dependencies
+## 🚀 Başlangıç
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### 1. Bağımlılıkları Kurun
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Uygulamayı Başlatın
 
-## Learn more
+```bash
+npx expo start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Terminaldeki yönergeleri takip ederek uygulamayı iOS/Android simülatöründe veya fiziksel cihazınızda (Expo Go) açabilirsiniz.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## 🕹️ Oyun Mantığı
 
-Join our community of developers creating universal apps.
+Word Crush, harf gridi üzerinde parmağınızı sürükleyerek anlamlı kelimeler oluşturma üzerine kuruludur.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- **Seçim:** Harfler yatay, dikey veya çapraz olarak (8 yön) bağlanabilir.
+- **Geri Alma (Backtrack):** Parmağınızı seçtiğiniz bir önceki harfin üzerine getirdiğinizde son harf seçimini iptal eder.
+- **Combo Sistemi:** Seçtiğiniz uzun kelimenin içinde geçen tüm 3 harf ve üzeri alt kelimeler de otomatik olarak bulunur ve puanınıza eklenir.
+- **Özel Güçler (Power-ups):** 4 harf ve üzeri kelimeler oluşturduğunuzda, seçtiğiniz son harfe özel güçler atanır (Satır patlatma, sütun patlatma, alan patlatma vb.).
+
+---
+
+## 🧠 Teknik Mimari ve Algoritmalar
+
+### 1. Trie (Sözlük Veri Yapısı)
+
+48.000+ kelimelik Türkçe sözlükte milisaniyeler içinde arama yapmak için **Trie (Önek Ağacı)** veri yapısı kullanılır. Bu yapı, bir kelimenin hem tam halini hem de bir önek (prefix) olup olmadığını anında kontrol etmemizi sağlar.
+
+**Kod Örneği:**
+
+```typescript
+// src/engine/Trie.ts
+export class Trie {
+  insert(word: string): void {
+    let node = this.root;
+    for (const char of word) {
+      if (!node.children.has(char)) {
+        node.children.set(char, new TrieNode());
+      }
+      node = node.children.get(char)!;
+    }
+    node.isEndOfWord = true;
+  }
+
+  startsWith(prefix: string): boolean {
+    let node = this.root;
+    for (const char of prefix) {
+      if (!node.children.has(char)) return false;
+      node = node.children.get(char)!;
+    }
+    return true;
+  }
+}
+```
+
+### 2. DFS Engine (Tahta Analizi)
+
+Oyun tahtası her değiştiğinde, arka planda bir **DFS (Depth-First Search)** algoritması çalışarak tahtadaki tüm olası kelimeleri tarar. Bu, kullanıcıya kaç tane "bulunabilir kelime" kaldığını göstermek için kullanılır.
+
+**Algoritma Mantığı:**
+
+- Tahtanın her hücresinden bir arama başlatılır.
+- Trie kullanılarak "budama" (pruning) yapılır; yani mevcut harf dizisi bir kelimenin başlangıcı değilse arama o yönde durdurulur.
+- 8 yöne doğru recursive olarak ilerlenir.
+
+```typescript
+// src/engine/DFSEngine.ts
+private dfs(grid, r, c, currentText, visited, foundWords) {
+  const letter = grid[r][c];
+  const newText = currentText + letter;
+
+  // Pruning: Eğer bu prefix trie'de yoksa direkt kes
+  if (!this.trie.startsWith(newText)) return;
+
+  if (newText.length >= 3 && this.trie.search(newText)) {
+    foundWords.push({ text: newText, path: newPath });
+  }
+
+  for (const [dr, dc] of DIRECTIONS) {
+    // 8 yöne DFS devam...
+  }
+}
+```
+
+### 3. Redux State Management
+
+Oyunun tüm durumu (grid, hücre verileri, skor, hamle sayısı) **Redux Toolkit** ile yönetilir. `gameSlice`, `userSlice` ve `marketSlice` olmak üzere üç ana parçadan oluşur.
+
+- **gameSlice:** Oyunun kalbi. Grid üretimi, harf düşme (gravity) mantığı ve kelime işleme burada gerçekleşir.
+- **userSlice:** Kullanıcı istatistikleri ve geçmiş oyun verilerini (Redux Persist ile kalıcı olarak) tutar.
+- **marketSlice:** Altın miktarı ve joker envanterini yönetir.
+
+---
