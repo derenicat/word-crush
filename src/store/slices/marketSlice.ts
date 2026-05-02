@@ -54,9 +54,12 @@ export const marketSlice = createSlice({
     },
     addGold: (state, action: PayloadAction<number>) => {
       state.gold += action.payload;
+    },
+    resetMarket: (state) => {
+      return initialState;
     }
   },
 });
 
-export const { buyItem, consumeItem, addGold } = marketSlice.actions;
+export const { buyItem, consumeItem, addGold, resetMarket } = marketSlice.actions;
 export default marketSlice.reducer;

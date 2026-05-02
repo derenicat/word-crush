@@ -68,9 +68,12 @@ export const userSlice = createSlice({
         gameNumber: state.totalGamesPlayed
       });
       if (state.pastGames.length > 10) state.pastGames.pop(); // Son 10 oyunu tut
+    },
+    resetUser: (state) => {
+      return initialState;
     }
   },
 });
 
-export const { setUsername, updateStatsAfterGame } = userSlice.actions;
+export const { setUsername, updateStatsAfterGame, resetUser } = userSlice.actions;
 export default userSlice.reducer;
