@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Dimensions, TouchableOpacity, Alert, Modal, ScrollView } from 'react-native';
+import { View, Text, Dimensions, TouchableOpacity, Alert, Modal, ScrollView, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../src/store';
@@ -13,6 +13,7 @@ import { LetterGenerator, LETTER_SCORES } from '../src/engine/LetterGenerator';
 import { DFSEngine } from '../src/engine/DFSEngine';
 import { useJokerActions } from '../src/hooks/useJokerActions';
 import dictionary from '../assets/dictionary.json';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 const BOARD_SIZE = width - 32;
@@ -76,6 +77,22 @@ export default function GameScreen() {
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
+    const backAction = () => {
+      if (!isGameOver) {
+        Alert.alert('Oyunu Bırak?', 'Mevcut ilerlemen kaydedilecek. Çıkmak istiyor musun?', [
+          { text: 'Hayır', onPress: () => null, style: 'cancel' },
+          { text: 'Evet', onPress: () => endGame() },
+        ]);
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [isGameOver, endGame]);
+
+  useEffect(() => {
     let interval: any;
     if (!isGameOver) {
       interval = setInterval(() => {
@@ -125,10 +142,8 @@ export default function GameScreen() {
     }
   }, [game.movesLeft, isGameOver, game.grid.length, endGame]);
 
-  // Grid her güncellendiğinde kelimeleri tara
   useEffect(() => {
     if (gridSize > 0) {
-      // ID gridini harf gridine çevir (RaycastEngine harf bekler)
       const letterGrid = game.grid.map(row => 
         row.map(id => id ? (game.cells[id]?.letter || '') : '')
       );
@@ -162,8 +177,6 @@ export default function GameScreen() {
   const selectCellAction = (x: number, y: number) => {
     const adjustedX = x - 4;
     const adjustedY = y - 4;
-    
-    // Deadzone kontrolü: Parmağın hücrenin orta %50'lik alanına girmesini bekle
     const relativeX = adjustedX % cellSize;
     const relativeY = adjustedY % cellSize;
     const margin = cellSize * 0.25;
@@ -186,7 +199,6 @@ export default function GameScreen() {
     const text = game.selectedIds.map(id => game.cells[id]?.letter || '').join('');
     
     if (text.length >= 3 && globalTrie.search(text)) {
-      // ... (existing logic)
       const comboWordsSet = new Set<string>();
       for (let i = 0; i <= text.length - 3; i++) {
         for (let j = i + 3; j <= text.length; j++) {
@@ -252,6 +264,15 @@ export default function GameScreen() {
     ]);
   };
 
+  const JOKER_UI = [
+    { id: 'lollipop', icon: <MaterialCommunityIcons name="candy" size={24} color="#3E2723" />, name: 'Lolipop Kırıcı' },
+    { id: 'fish', icon: <MaterialCommunityIcons name="fish" size={24} color="#3E2723" />, name: 'Balık' },
+    { id: 'wheel', icon: <MaterialCommunityIcons name="tire" size={24} color="#3E2723" />, name: 'Tekerlek' },
+    { id: 'swap', icon: <Ionicons name="swap-horizontal" size={24} color="#3E2723" />, name: 'Serbest Değiştirme' },
+    { id: 'partyBooster', icon: <MaterialCommunityIcons name="party-popper" size={24} color="#3E2723" />, name: 'Parti Güçlendiricisi' },
+    { id: 'shuffle', icon: <Ionicons name="shuffle" size={24} color="#3E2723" />, name: 'Harf Karıştırma' },
+  ];
+
   if (gridSize === 0) return null;
 
   return (
@@ -272,7 +293,6 @@ export default function GameScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* GAME OVER MODAL */}
       <Modal visible={isGameOver} transparent={true} animationType="slide">
         <View className="flex-1 justify-center items-center bg-black/80 p-6">
           <View className="bg-wood-800 w-full max-w-sm rounded-3xl p-6 border-4 border-gold items-center">
@@ -331,13 +351,28 @@ export default function GameScreen() {
       {activeJoker && (
         <View className="bg-red-500 w-full p-2 mb-2 items-center rounded-lg flex-row justify-between">
           <Text className="text-white font-bold">
-            Hedef Seçin ({activeJoker === 'lollipop' ? 'Lolipop 🍭' : activeJoker === 'wheel' ? 'Tekerlek 🎡' : swapTarget ? '2. Hücre 🔄' : '1. Hücre 🔄'})
+            Hedef Seçin ({
+              activeJoker === 'lollipop' ? 'Lolipop Kırıcı 🍭' : 
+              activeJoker === 'wheel' ? 'Tekerlek 🛞' : 
+              swapTarget ? 'Serbest Değiştirme (2. Harf) 🔄' : 'Serbest Değiştirme (1. Harf) 🔄'
+            })
           </Text>
           <TouchableOpacity onPress={cancelJoker} className="bg-white px-2 py-1 rounded">
             <Text className="text-red-500 font-bold">İptal</Text>
           </TouchableOpacity>
         </View>
       )}
+
+      {/* MEVCUT KELİME ALANI */}
+      <View className="h-12 justify-center items-center mb-2">
+        {game.selectedIds.length > 0 && (
+          <View className="bg-wood-800 px-6 py-2 rounded-full border-2 border-gold shadow-lg">
+            <Text className="text-gold text-2xl font-black tracking-[4px]">
+              {game.selectedIds.map(id => game.cells[id]?.letter || '').join('')}
+            </Text>
+          </View>
+        )}
+      </View>
 
       <View className="items-center justify-center flex-1">
         <GestureDetector gesture={panGesture}>
@@ -355,53 +390,18 @@ export default function GameScreen() {
       {/* JOKER BAR */}
       <View className="w-full mt-6 mb-8">
         <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 8, paddingTop: 12, gap: 12 }}>
-          <TouchableOpacity 
-            className={`bg-wood-200 p-3 rounded-xl items-center justify-center border-b-4 border-wood-400 min-w-[60px] ${inventory.lollipop === 0 ? 'opacity-50' : ''}`}
-            onPress={() => activateTargetedJoker('lollipop')}
-          >
-            <Text className="text-2xl">🍭</Text>
-            <View className="absolute -top-2 -right-2 bg-red-500 w-5 h-5 rounded-full items-center justify-center"><Text className="text-white text-xs font-bold">{inventory.lollipop}</Text></View>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className={`bg-wood-200 p-3 rounded-xl items-center justify-center border-b-4 border-wood-400 min-w-[60px] ${inventory.wheel === 0 ? 'opacity-50' : ''}`}
-            onPress={() => activateTargetedJoker('wheel')}
-          >
-            <Text className="text-2xl">🎡</Text>
-            <View className="absolute -top-2 -right-2 bg-red-500 w-5 h-5 rounded-full items-center justify-center"><Text className="text-white text-xs font-bold">{inventory.wheel}</Text></View>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className={`bg-wood-200 p-3 rounded-xl items-center justify-center border-b-4 border-wood-400 min-w-[60px] ${inventory.swap === 0 ? 'opacity-50' : ''}`}
-            onPress={() => activateTargetedJoker('swap')}
-          >
-            <Text className="text-2xl">🔄</Text>
-            <View className="absolute -top-2 -right-2 bg-red-500 w-5 h-5 rounded-full items-center justify-center"><Text className="text-white text-xs font-bold">{inventory.swap}</Text></View>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className={`bg-wood-200 p-3 rounded-xl items-center justify-center border-b-4 border-wood-400 min-w-[60px] ${inventory.partyBooster === 0 ? 'opacity-50' : ''}`}
-            onPress={() => handleInstantJoker('partyBooster')}
-          >
-            <Text className="text-2xl">🎆</Text>
-            <View className="absolute -top-2 -right-2 bg-red-500 w-5 h-5 rounded-full items-center justify-center"><Text className="text-white text-xs font-bold">{inventory.partyBooster}</Text></View>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className={`bg-wood-200 p-3 rounded-xl items-center justify-center border-b-4 border-wood-400 min-w-[60px] ${inventory.fish === 0 ? 'opacity-50' : ''}`}
-            onPress={() => handleInstantJoker('fish')}
-          >
-            <Text className="text-2xl">🐟</Text>
-            <View className="absolute -top-2 -right-2 bg-red-500 w-5 h-5 rounded-full items-center justify-center"><Text className="text-white text-xs font-bold">{inventory.fish}</Text></View>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            className={`bg-wood-200 p-3 rounded-xl items-center justify-center border-b-4 border-wood-400 min-w-[60px] ${inventory.shuffle === 0 ? 'opacity-50' : ''}`}
-            onPress={() => handleInstantJoker('shuffle')}
-          >
-            <Text className="text-2xl">🔀</Text>
-            <View className="absolute -top-2 -right-2 bg-red-500 w-5 h-5 rounded-full items-center justify-center"><Text className="text-white text-xs font-bold">{inventory.shuffle}</Text></View>
-          </TouchableOpacity>
+          {JOKER_UI.map(j => (
+            <TouchableOpacity 
+              key={j.id}
+              className={`bg-wood-200 p-3 rounded-xl items-center justify-center border-b-4 border-wood-400 min-w-[64px] ${(inventory as any)[j.id] === 0 ? 'opacity-50' : ''}`}
+              onPress={() => j.id === 'lollipop' || j.id === 'wheel' || j.id === 'swap' ? activateTargetedJoker(j.id as any) : handleInstantJoker(j.id as any)}
+            >
+              {j.icon}
+              <View className="absolute -top-1 -right-1 bg-red-500 w-5 h-5 rounded-full items-center justify-center border border-white">
+                <Text className="text-white text-[10px] font-bold">{(inventory as any)[j.id]}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
       </View>
     </View>

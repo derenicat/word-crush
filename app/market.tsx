@@ -3,14 +3,15 @@ import { useRouter } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../src/store';
 import { buyItem } from '../src/store/slices/marketSlice';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 
 const SHOP_ITEMS = [
-  { id: 'fish', name: 'Balık', desc: 'Rastgele harfleri yok eder.', price: 100, icon: '🐟' },
-  { id: 'wheel', name: 'Tekerlek', desc: 'Seçili satır ve sütunu temizler.', price: 200, icon: '🎡' },
-  { id: 'lollipop', name: 'Lolipop', desc: 'Sadece 1 harfi yok eder.', price: 75, icon: '🍭' },
-  { id: 'swap', name: 'Değiştirme', desc: 'İki harfin yerini değiştirir.', price: 125, icon: '🔄' },
-  { id: 'shuffle', name: 'Karıştırma', desc: 'Tüm gridi karıştırır.', price: 300, icon: '🔀' },
-  { id: 'partyBooster', name: 'Parti Güçlendir.', desc: 'Tüm gridi yeniler.', price: 400, icon: '🎉' },
+  { id: 'fish', name: 'Balık', desc: 'Rastgele harfleri yok eder.', price: 100, icon: <MaterialCommunityIcons name="fish" size={32} color="#FFC107" /> },
+  { id: 'wheel', name: 'Tekerlek', desc: 'Seçili satır ve sütunu temizler.', price: 200, icon: <MaterialCommunityIcons name="tire" size={32} color="#FFC107" /> },
+  { id: 'lollipop', name: 'Lolipop Kırıcı', desc: 'Sadece 1 harfi yok eder.', price: 75, icon: <MaterialCommunityIcons name="candy" size={32} color="#FFC107" /> },
+  { id: 'swap', name: 'Serbest Değiştirme', desc: 'İki harfin yerini değiştirir.', price: 125, icon: <Ionicons name="swap-horizontal" size={32} color="#FFC107" /> },
+  { id: 'shuffle', name: 'Harf Karıştırma', desc: 'Tüm gridi karıştırır.', price: 300, icon: <Ionicons name="shuffle" size={32} color="#FFC107" /> },
+  { id: 'partyBooster', name: 'Parti Güçlendiricisi', desc: 'Tüm gridi yeniler.', price: 400, icon: <MaterialCommunityIcons name="party-popper" size={32} color="#FFC107" /> },
 ] as const;
 
 export default function MarketScreen() {
@@ -43,7 +44,9 @@ export default function MarketScreen() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {SHOP_ITEMS.map((item) => (
           <View key={item.id} className="bg-wood-700 rounded-xl p-4 mb-4 flex-row items-center border-b-4 border-wood-800">
-            <Text className="text-4xl mr-4">{item.icon}</Text>
+            <View className="w-12 items-center mr-4">
+              {item.icon}
+            </View>
             <View className="flex-1">
               <Text className="text-white font-bold text-lg">{item.name}</Text>
               <Text className="text-wood-300 text-sm pr-2">{item.desc}</Text>
