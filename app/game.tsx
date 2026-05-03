@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, Dimensions, TouchableOpacity, Alert, Modal, ScrollView, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
@@ -75,6 +75,7 @@ export default function GameScreen() {
   const [isLogVisible, setIsLogVisible] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const lastSelectedRef = useRef<string | null>(null);
 
   useEffect(() => {
     const backAction = () => {
@@ -179,7 +180,9 @@ export default function GameScreen() {
     const adjustedY = y - 4;
     const relativeX = adjustedX % cellSize;
     const relativeY = adjustedY % cellSize;
-    const margin = cellSize * 0.25;
+    
+    // Deadzone'u %10'a çekerek dengeledik.
+    const margin = cellSize * 0.10;
 
     if (relativeX > margin && relativeX < cellSize - margin &&
         relativeY > margin && relativeY < cellSize - margin) {
@@ -188,7 +191,12 @@ export default function GameScreen() {
         const row = Math.floor(adjustedY / cellSize);
         
         if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
-          dispatch(selectCell(game.grid[row][col]));
+          const id = game.grid[row][col];
+          // Performans Optimizasyonu: Eğer parmak hala aynı hücre üzerindeyse dispatch gönderme.
+          if (id === lastSelectedRef.current) return;
+          
+          lastSelectedRef.current = id;
+          dispatch(selectCell(id));
         }
     }
   };
@@ -246,6 +254,11 @@ export default function GameScreen() {
     }
   };
 
+  const handleGestureEnd = () => {
+    lastSelectedRef.current = null;
+    validateWordAction();
+  };
+
   const panGesture = Gesture.Pan()
     .onBegin((e) => {
       runOnJS(handleGestureBegin)(e.x, e.y);
@@ -254,7 +267,7 @@ export default function GameScreen() {
       runOnJS(handleGestureUpdate)(e.x, e.y);
     })
     .onEnd(() => {
-      runOnJS(validateWordAction)();
+      runOnJS(handleGestureEnd)();
     });
 
   const handleQuit = () => {
